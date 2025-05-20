@@ -1,0 +1,205 @@
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { Pencil, Trash2, Plus } from "lucide-react";
+import Modal from "../../components/Modal";
+
+export default function MemberIndex() {
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const [showModal, setShowModal] = useState(false);
+  const [editingMember, setEditingMember] = useState(null);
+  const [formData, setFormData] = useState({ nama: "", email: "" });
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const API_URL = "http://45.64.100.26:88/perpus-api/public/api/member";
+  const token = localStorage.getItem("token");
+  const authHeader = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+  };
+
+  const fetchMembers = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(API_URL, authHeader);
+      setMembers(response.data.data || []);
+    } catch (err) {
+      setError({ message: err.response?.data?.message || err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMembers();
+  }, []);
+
+  const handleInputChange = (e) =>
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const openAddModal = () => {
+    setFormData({ nama: "", email: "" });
+    setEditingMember(null);
+    setShowModal(true);
+  };
+
+  const openEditModal = (member) => {
+    setFormData({ nama: member.nama, email: member.email });
+    setEditingMember(member);
+    setShowModal(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.nama || !formData.email) {
+      alert("Nama dan email tidak boleh kosong.");
+      return;
+    }
+
+    try {
+      if (editingMember) {
+        await axios.put(`${API_URL}/${editingMember.id}`, formData, authHeader);
+      } else {
+        await axios.post(API_URL, formData, authHeader);
+      }
+      setShowModal(false);
+      fetchMembers();
+    } catch (err) {
+      alert(err.response?.data?.message || err.message);
+    }
+  };
+
+  const confirmDelete = async () => {
+    try {
+      await axios.delete(`${API_URL}/${deleteTarget.id}`, authHeader);
+      setDeleteTarget(null);
+      fetchMembers();
+    } catch (err) {
+      alert("Gagal menghapus: " + err.message);
+    }
+  };
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto text-gray-800">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold">Manajemen Anggota</h1>
+        <button
+          onClick={openAddModal}
+          className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg transition"
+        >
+          <Plus className="w-4 h-4" /> Tambah
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 p-3 rounded mb-4">
+          {error.message}
+        </div>
+      )}
+
+      {loading ? (
+        <p>Memuat data anggota...</p>
+      ) : (
+        <div className="bg-white shadow-md rounded overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-left">
+              <tr>
+                <th className="p-4 font-medium">Nama</th>
+                <th className="p-4 font-medium">Email</th>
+                <th className="p-4 font-medium">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((member) => (
+                <tr key={member.id} className="border-t hover:bg-gray-50">
+                  <td className="p-4">{member.nama}</td>
+                  <td className="p-4">{member.email}</td>
+                  <td className="p-4 flex gap-2">
+                    <button
+                      onClick={() => openEditModal(member)}
+                      className="p-2 rounded bg-yellow-100 hover:bg-yellow-200 text-yellow-800"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(member)}
+                      className="p-2 rounded bg-red-100 hover:bg-red-200 text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal Tambah/Edit */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editingMember ? "Edit Member" : "Tambah Member"}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium">Nama</label>
+            <input
+              type="text"
+              name="nama"
+              value={formData.nama}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border rounded mt-1"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border rounded mt-1"
+            />
+          </div>
+          <div className="pt-4 text-right">
+            <button
+              onClick={handleSubmit}
+              className="bg-sky-600 text-white px-4 py-2 rounded hover:bg-sky-700"
+            >
+              {editingMember ? "Simpan" : "Tambah"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal Hapus */}
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Hapus Member"
+      >
+        <p className="text-sm">
+          Yakin ingin menghapus <strong>{deleteTarget?.nama}</strong>?
+        </p>
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={() => setDeleteTarget(null)}
+            className="px-4 py-2 border rounded hover:bg-gray-100"
+          >
+            Batal
+          </button>
+          <button
+            onClick={confirmDelete}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Hapus
+          </button>
+        </div>
+      </Modal>
+    </div>
+  );
+}
