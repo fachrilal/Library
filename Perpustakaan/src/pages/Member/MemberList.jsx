@@ -10,7 +10,7 @@ export default function MemberIndex() {
 
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
-  const [formData, setFormData] = useState({ nama: "", email: "" });
+  const [formData, setFormData] = useState({ nama: "", email: "", password: "" });
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const API_URL = "http://45.64.100.26:88/perpus-api/public/api/member";
@@ -26,9 +26,10 @@ export default function MemberIndex() {
     try {
       setLoading(true);
       const response = await axios.get(API_URL, authHeader);
-      setMembers(response.data.data || []);
+      setMembers(response.data?.data ?? []);
     } catch (err) {
       setError({ message: err.response?.data?.message || err.message });
+      setMembers([]);
     } finally {
       setLoading(false);
     }
@@ -42,26 +43,28 @@ export default function MemberIndex() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const openAddModal = () => {
-    setFormData({ nama: "", email: "" });
+    setFormData({ nama: "", email: "", password: "" });
     setEditingMember(null);
     setShowModal(true);
   };
 
   const openEditModal = (member) => {
-    setFormData({ nama: member.nama, email: member.email });
+    setFormData({ nama: member.nama, email: member.email, password: "" });
     setEditingMember(member);
     setShowModal(true);
   };
 
   const handleSubmit = async () => {
-    if (!formData.nama || !formData.email) {
-      alert("Nama dan email tidak boleh kosong.");
+    if (!formData.nama || !formData.email || (!editingMember && !formData.password)) {
+      alert("Nama, email, dan password (untuk member baru) tidak boleh kosong.");
       return;
     }
 
     try {
       if (editingMember) {
-        await axios.put(`${API_URL}/${editingMember.id}`, formData, authHeader);
+        const payload = { nama: formData.nama, email: formData.email };
+        if (formData.password) payload.password = formData.password;
+        await axios.put(`${API_URL}/${editingMember.id}`, payload, authHeader);
       } else {
         await axios.post(API_URL, formData, authHeader);
       }
@@ -85,7 +88,7 @@ export default function MemberIndex() {
   return (
     <div className="p-6 max-w-5xl mx-auto text-gray-800">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold">Manajemen Anggota</h1>
+        <h1 className="text-2xl font-semibold">Manajemen Member</h1>
         <button
           onClick={openAddModal}
           className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg transition"
@@ -101,7 +104,7 @@ export default function MemberIndex() {
       )}
 
       {loading ? (
-        <p>Memuat data anggota...</p>
+        <p>Memuat data member...</p>
       ) : (
         <div className="bg-white shadow-md rounded overflow-hidden">
           <table className="w-full text-sm">
@@ -113,26 +116,34 @@ export default function MemberIndex() {
               </tr>
             </thead>
             <tbody>
-              {members.map((member) => (
-                <tr key={member.id} className="border-t hover:bg-gray-50">
-                  <td className="p-4">{member.nama}</td>
-                  <td className="p-4">{member.email}</td>
-                  <td className="p-4 flex gap-2">
-                    <button
-                      onClick={() => openEditModal(member)}
-                      className="p-2 rounded bg-yellow-100 hover:bg-yellow-200 text-yellow-800"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(member)}
-                      className="p-2 rounded bg-red-100 hover:bg-red-200 text-red-600"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+              {members.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="p-4 text-center text-gray-500">
+                    Tidak ada data member
                   </td>
                 </tr>
-              ))}
+              ) : (
+                members.map((member) => (
+                  <tr key={member.id} className="border-t hover:bg-gray-50">
+                    <td className="p-4">{member.nama}</td>
+                    <td className="p-4">{member.email}</td>
+                    <td className="p-4 flex gap-2">
+                      <button
+                        onClick={() => openEditModal(member)}
+                        className="p-2 rounded bg-yellow-100 hover:bg-yellow-200 text-yellow-800"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(member)}
+                        className="p-2 rounded bg-red-100 hover:bg-red-200 text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -163,6 +174,17 @@ export default function MemberIndex() {
               value={formData.email}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border rounded mt-1"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Password {editingMember ? <span className="text-gray-400">(Opsional)</span> : ""}</label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border rounded mt-1"
+              placeholder={editingMember ? "Kosongkan jika tidak diubah" : "Masukkan password"}
             />
           </div>
           <div className="pt-4 text-right">
