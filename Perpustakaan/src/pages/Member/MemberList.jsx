@@ -11,6 +11,7 @@ export default function MemberIndex() {
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [formData, setFormData] = useState({ nama: "", email: "", password: "" });
+
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const API_URL = "http://45.64.100.26:88/perpus-api/public/api/member";
@@ -19,17 +20,17 @@ export default function MemberIndex() {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
-    },
+    }, 
   };
 
   const fetchMembers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(API_URL, authHeader);
-      setMembers(response.data?.data ?? []);
+      const res = await axios.get(API_URL, authHeader);
+      console.log("API response:", res.data); // Cek struktur data
+      setMembers(res.data || []); // <-- Perbaiki di sini
     } catch (err) {
       setError({ message: err.response?.data?.message || err.message });
-      setMembers([]);
     } finally {
       setLoading(false);
     }
@@ -55,30 +56,35 @@ export default function MemberIndex() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.nama || !formData.email || (!editingMember && !formData.password)) {
-      alert("Nama, email, dan password (untuk member baru) tidak boleh kosong.");
+    const { nama, email, password } = formData;
+
+    if (!nama || !email || (!editingMember && !password)) {
+      alert("Nama, email, dan password (untuk member baru) harus diisi.");
       return;
     }
 
     try {
       if (editingMember) {
-        const payload = { nama: formData.nama, email: formData.email };
-        if (formData.password) payload.password = formData.password;
+        const payload = { nama, email };
+        if (password) payload.password = password;
         await axios.put(`${API_URL}/${editingMember.id}`, payload, authHeader);
       } else {
         await axios.post(API_URL, formData, authHeader);
       }
+
+      await fetchMembers(); // Tunggu fetch selesai sebelum menutup modal
       setShowModal(false);
-      fetchMembers();
     } catch (err) {
       alert(err.response?.data?.message || err.message);
     }
   };
 
   const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
       await axios.delete(`${API_URL}/${deleteTarget.id}`, authHeader);
       setDeleteTarget(null);
+      setShowModal(false);
       fetchMembers();
     } catch (err) {
       alert("Gagal menghapus: " + err.message);
@@ -93,7 +99,7 @@ export default function MemberIndex() {
           onClick={openAddModal}
           className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg transition"
         >
-          <Plus className="w-4 h-4" /> Tambah
+          {/* <Plus className="w-4 h-4" /> */} Tambah
         </button>
       </div>
 
@@ -177,7 +183,9 @@ export default function MemberIndex() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium">Password {editingMember ? <span className="text-gray-400">(Opsional)</span> : ""}</label>
+            <label className="block text-sm font-medium">
+              Password {editingMember && <span className="text-gray-400">(Opsional)</span>}
+            </label>
             <input
               type="password"
               name="password"
